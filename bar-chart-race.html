@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu">
+    <script src="https://d3js.org/d3.v5.min.js" crossorigin="anonymous"></script>
+    <script src="https://d3js.org/d3-array.v2.min.js" crossorigin="anonymous"></script>
+    <style>
+        .labels {
+            font-family: "Ubuntu";
+            font-size: 20px;
+        }
+        
+        .dateText {
+            font-family: "Ubuntu";
+            font-size: 20px;
+        }
+        
+        .valueLabel,
+        .legends {
+            font-family: "Ubuntu";
+            font-size: 20px;
+        }
+        
+        .domain,
+        .tick:first-child {
+            display: none;
+        }
+        
+    </style>
+</head>
+
+<body>
+    <div id="flagsInstant"></div>
+    <script>
+        colors = {
+            "Technology": "rgba(9,0,255,0.9)",
+            "Financial": "rgba(0, 254, 203,0.9)",
+            "Fintech": "rgba(121, 255, 255,0.9)",
+            "Automotive": "rgba(214, 210, 211,0.9)",
+            "Healthcare": "rgba(111, 176, 74,0.9)",
+            "Oil & Gas": "rgba(0, 95, 106,0.9)",
+            "Mineral": "rgba(0, 95, 106,0.9)",
+            "Consumer Goods": "rgba(149, 191, 72,0.9)",
+            "Food": "rgba(226, 239, 126,0.9)",
+            "Mobile Operator": "rgba(3, 221, 221,0.9)",
+            "Telecommunications": "rgba(3, 221, 181, 0.7)",
+            "Diverse": "rgba(85,107,47,0.9)",
+            "Retail": "rgba(18, 230, 138,0.9)"
+        };
+        flagsSrc = {
+            "China": "flags/china-flag-xs.png",
+            "United States": "flags/united-states-of-america-flag-xs.png",
+            "Switzerland": "flags/switzerland-flag-xs.png",
+            "UK-Netherlands": "flags/netherlands-flag-xs.png",
+            "South Korea": "flags/south-korea-flag-xs.png",
+            "UK-Australia": "flags/australia-flag-xs.png",
+            "Brazil": "flags/brazil-flag-xs.png",
+            "United Kingdom": "flags/united-kingdom-flag-xs.png",
+            "Russia": "flags/russia-flag-xs.png",
+            "Japan": "flags/japan-flag-xs.png",
+            "Germany": "flags/germany-flag-xs.png",
+            "Taiwan": "flags/Flag_of_the_Republic_of_China.svg",
+        };
+
+
+
+        companyList = ['Johnson & Johnson', 'Visa', 'Berkshire Hathaway', 'Alibaba',
+            'Tencent', 'Facebook', 'Alphabet', 'Amazon', 'Microsoft', 'Apple',
+            'JPMorgan Chase', 'ExxonMobil', 'Wells Fargo', 'General Electric',
+            'AT&T', 'Exxon Mobil', 'Nestlé', 'Novartis', 'China Mobile',
+            'Google', 'IC Bank of China', 'Petrochina', 'Wal-Mart',
+            'PetroChina', 'Hoffmann-La Roche', 'Royal Dutch Shell', 'Chevron',
+            'IBM', 'Samsung', 'BHP Billiton', 'Petrobras',
+            'China Construction Bank', 'Procter & Gamble', 'HSBC', 'Gazprom',
+            'Sinopec', 'Bank of America', 'Citigroup', 'Toyota', 'BP',
+            'Pfizer', 'Intel Corporation', 'American International Group',
+            'Vodafone', 'Cisco', 'Deutsche Telekom', 'Lucent Technologies',
+            'Nippon', 'NTT DoCoMo', 'Coca-Cola', 'Merck', 'TSMC'
+        ]
+
+        // Feel free to change or delete any of the code you see in this editor!
+        var height = window.innerHeight *0.98;
+        var width = window.innerWidth*0.98;
+        var svg = d3.select("body").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+
+        var tickDuration = 3000;
+        var barHeight = height*0.08;
+        var labelFontSize = barHeight*0.2;
+        var valueFontSize = labelFontSize*0.2;
+        var tickFontSize = barHeight*0.3;
+
+
+
+        const margin = {
+            top: barHeight * 1.3,
+            right: barHeight * 2,
+            bottom: barHeight * 0.5,
+            left: barHeight * 2
+        };
+
+
+
+        let date = '12-31-1997';
+
+
+        d3.csv('https://raw.githubusercontent.com/Dimanjan/csv/master/top_companies11.csv').then(function(data) {
+            console.log(data)
+
+            data.forEach(d => {
+                d.rank = +d.rank;
+                d.gang_rank = +d.gang_rank;
+                d.tech_n = +d.tech_n;
+                d.yearly_max_total = +d.yearly_max_total * 0.99;
+                d.others_n = +d.others_n;
+                d.value = +d.value;
+                d.colour = 'rgba(214, 210, 211, 0.7)';
+            });
+
+            let firstDateSlice = data.filter(d => d.date == date);
+
+            let xScale = d3.scaleLinear()
+                .domain([0, d3.max(firstDateSlice, d => d.yearly_max_total)])
+                //.range([margin.left, width - margin.right]);
+                .range([margin.left, width - margin.right]);
+            let xAxis = d3.axisTop()
+                .scale(xScale)
+                .ticks(5)
+                //.tickSize(-(height - margin.top - margin.bottom))
+                .tickSize(0)
+                .tickFormat(d => d3.format(',')(d));
+            svg.append('g')
+                .attr('class', 'axis xAxis')
+                .attr('transform', `translate(0, ${margin.top})`)
+                .call(xAxis)
+                .selectAll('.tick line')
+                .classed('origin', d => d == 0);
+
+            let yScale = d3.scaleBand()
+                .domain(Array(d3.max([firstDateSlice[0].tech_n, firstDateSlice[0].others_n])).keys())
+                .domain([1, 2, 3, 4, 5, 6, 7, 8, 9])
+                .rangeRound([margin.top, height - margin.bottom]);
+
+            svg.selectAll('rect.bar')
+                .data(firstDateSlice, d => d.company)
+                .enter()
+                .append('rect')
+                .attr('class', 'bar')
+                .attr("x", d => (d.industry == "Technology") ? margin.right : width - xScale(d.value))
+                .attr('width', d => (d.industry == "Technology") ? xScale(d.value) - margin.right : xScale(d.value) - margin.right)
+                .attr('y', d => yScale(d.gang_rank))
+                .attr('height', barHeight)
+                .style('fill', d => colors[d.industry]);
+            var labelColor = "rgba(255,255,255,1)";
+            svg.selectAll('text.labels')
+                .data(firstDateSlice, d => d.company)
+                .enter()
+                .append('text')
+                .attr('class', 'labels')
+                .attr("x", d => (d.industry == "Technology") ? xScale(d.value) : width - xScale(d.value))
+                .attr('y', d => yScale(d.gang_rank))
+                .attr("dx", d => (d.industry == "Technology") ? -10 : 10)
+                .attr("dy", barHeight * 0.4)
+                .attr("text-anchor", d => (d.industry == "Technology") ? "end" : "start")
+                .html(d => d.company)
+                .style('fill', labelColor);
+
+            svg.selectAll('text.valueLabel')
+                .data(firstDateSlice, d => d.company)
+                .enter()
+                .append('text')
+                .attr('class', 'valueLabel')
+                .attr("x", d => (d.industry == "Technology") ? xScale(d.value) : width - xScale(d.value))
+                .attr('y', d => yScale(d.gang_rank))
+                .attr("dx", d => (d.industry == "Technology") ? -10 : 10)
+                .attr("dy", barHeight * 0.8)
+                .attr("text-anchor", d => (d.industry == "Technology") ? "end" : "start")
+                .style('fill', labelColor)
+                .text(d => d3.format(',.0f')(d.value));
+            var industryCount = d3.nest()
+                .key(function(d) {
+                    return d.industry;
+                })
+                .rollup(function(v) {
+                    return v.length;
+                })
+                .entries(firstDateSlice);
+            industryCount.sort(function(b, a) {
+                return a.value - b.value
+            })
+            svg.selectAll('.legends')
+                .data(industryCount, d => d.key)
+                .enter()
+                .append('text')
+                .attr('class', 'legends')
+                .attr("x", (d, i) => margin.right + i * width / 7)
+                .attr('y', d => height - 25)
+                .attr("text-anchor", "start")
+                .style('fill', d => colors[d.key])
+                .text(d => d.key + "(" + d.value + ")");
+
+            var companyCountry = {}
+            d3.map(data, function(d) {
+                companyCountry[d.company] = d.country;
+            })
+
+            svg.selectAll('.flags')
+                .data(firstDateSlice, d => d.company)
+                .enter()
+                .append("svg:image")
+                .attr('width', barHeight * 1.8)
+                .attr('height', barHeight)
+                .attr("src", d => flagsSrc[d.country])
+                .attr("x", d => (d.industry == "Technology") ? 5 : width - margin.left + 5)
+                .attr('y', d => yScale(+d.gang_rank))
+                .style("opacity", 1);
+
+
+            uniqueDates = d3.map(data, function(d) {
+                return d.date;
+
+            }).reverse()
+            uniqueDates = [...new Set(uniqueDates)]
+            console.log(uniqueDates)
+
+
+
+            let dateText = svg.append('text')
+                .attr('class', 'dateText')
+                .attr('x', width / 2)
+                .attr('y', 20)
+                .style('text-anchor', 'middle')
+                .html(date);
+
+
+
+            tickerIndex = 1;
+            var previousValues = {};
+            let ticker = d3.interval(e => {
+                    let dateSlice = data.filter(d => d.date == uniqueDates[tickerIndex]);
+
+                    let prevSlice = data.filter(d => d.date == uniqueDates[tickerIndex - 1]);
+
+                    var previousValues = {};
+                    prevSlice.forEach(function(d) {
+                        previousValues[d.company] = d.value
+                    });
+
+                    xScale.domain([0, d3.max(dateSlice, d => d.yearly_max_total)]);
+                    svg.select('.xAxis')
+                        .transition()
+                        .duration(tickDuration)
+                        .ease(d3.easeQuad)
+                        .call(xAxis);
+
+                    max_tech_others_n = d3.max([dateSlice[0].tech_n, dateSlice[0].others_n])
+
+                    var domArray = [];
+                    for (var i = 1; i <= max_tech_others_n; i++) {
+                        domArray.push(i);
+                    }
+
+
+                    yScale.domain(domArray);
+                    let bars = svg.selectAll('.bar').data(dateSlice, d => d.company);
+
+                    bars
+                        .enter()
+                        .append('rect')
+                        .attr('class', d => `bar ${d.company.replace(/\s/g,'_')}`)
+                        .attr("x", d => (d.industry == "Technology") ? margin.right : width - xScale(d.value))
+                        .attr('width', d => (d.industry == "Technology") ? xScale(d.value) - margin.right : xScale(d.value) - margin.right)
+                        .attr('y', d => yScale(d.gang_rank))
+                        .attr('height', barHeight)
+                        .style('fill', 'rgba(255,255,255,0)')
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .delay(tickDuration * 0.66)
+                        .ease(d3.easeQuad)
+                        .style('fill', d => colors[d.industry])
+                        //.attr("x", d => (d.industry == "Technology") ? margin.right : width - xScale(d.value))
+                        //.attr('width', d => xScale(d.value));
+
+                    bars
+                        .transition()
+                        .duration(tickDuration)
+                        .ease(d3.easeQuad)
+                        .style('fill', d => colors[d.industry])
+                        .attr("x", d => (d.industry == "Technology") ? margin.right : width - xScale(d.value))
+                        .attr('width', d => (d.industry == "Technology") ? xScale(d.value) - margin.right : xScale(d.value) - margin.right)
+                        .attr('y', d => yScale(d.gang_rank));
+
+                    bars
+                        .exit()
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .ease(d3.easeQuad)
+                        //.attr("x", d => (d.industry == "Technology") ? margin.right : width - margin.right)
+                        .style('fill', 'rgba(255,255,255,0)')
+                        //.attr('width', 0)
+                        .remove();
+
+                    labels = svg.selectAll('.labels')
+                        .data(dateSlice, d => d.company)
+
+
+                    labels.enter()
+                        .append('text')
+                        .attr('class', d => `labels ${d.company.replace(/\s/g,'_')}`)
+                        //.attr("x", d => (d.industry == "Technology") ? margin.right : width - margin.right)
+                        .attr("x", d => (d.industry == "Technology") ? xScale(d.value) : width - xScale(d.value))
+                        .attr('y', d => yScale(d.gang_rank))
+                        .attr("dx", d => (d.industry == "Technology") ? -10 : 10)
+                        .attr("dy", barHeight * 0.4)
+                        .html(d => d.company)
+                        .style('fill', 'rgba(255,255,255,0)')
+                        .attr("text-anchor", d => (d.industry == "Technology") ? "end" : "start")
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .delay(tickDuration * 0.66)
+                        .ease(d3.easeQuad)
+                        .style('fill', 'rgba(255,255,255,1)')
+                        //.attr("x", d => (d.industry == "Technology") ? xScale(d.value) : width - xScale(d.value));
+                    labels
+                        .html(d => d.company)
+                        .transition()
+                        .duration(tickDuration)
+                        .ease(d3.easeQuad)
+                        //.style('fill', 'rgba(255,255,255,0)')
+                        .attr("x", d => (d.industry == "Technology") ? xScale(d.value) : width - xScale(d.value))
+                        .attr('y', d => yScale(d.gang_rank));
+                    labels
+                        .exit()
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .ease(d3.easeQuad)
+                        .style('fill', 'rgba(255,255,255,0)')
+                        //.attr("x", d => (d.industry == "Technology") ? -100 : width - margin.right)
+                        .remove();
+
+
+                    let valueLabels = svg.selectAll('.valueLabel').data(dateSlice, d => d.company);
+
+                    valueLabels
+                        .enter()
+                        .append('text')
+                        .attr('class', 'valueLabel')
+                        .attr("x", d => (d.industry == "Technology") ? xScale(d.value) : width - xScale(d.value))
+                        //.attr("x", d => (d.industry == "Technology") ? margin.right : width - margin.right)
+                        .attr('y', d => yScale(d.gang_rank))
+                        .attr("dx", d => (d.industry == "Technology") ? -10 : 10)
+                        .attr("dy", barHeight * 0.8)
+                        .html(d => d.company)
+                        .style('fill', 'rgba(255,255,255,0)')
+                        .attr("text-anchor", d => (d.industry == "Technology") ? "end" : "start")
+                        .text(d => d3.format(',.0f')(d.value))
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .delay(tickDuration * 0.66)
+                        .ease(d3.easeQuad)
+                        .style('fill', labelColor)
+                        //.attr("x", d => (d.industry == "Technology") ? margin.right : width - xScale(d.value));
+
+                    valueLabels
+                        .transition()
+                        .duration(tickDuration)
+                        .ease(d3.easeQuad)
+                        .attr("x", d => (d.industry == "Technology") ? xScale(d.value) : width - xScale(d.value))
+                        .attr('y', d => yScale(d.gang_rank))
+                        .tween("text", function(d) {
+                            lastValue = (previousValues[d.company] > 0) ? previousValues[d.company] : 0;
+                            let i = d3.interpolate(lastValue, d.value);
+                            return function(t) {
+                                this.textContent = d3.format(',.0f')(i(t));
+                            };
+                        });
+
+
+                    valueLabels
+                        .exit()
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .ease(d3.easeQuad)
+                        .style('fill', 'rgba(255,255,255,0)')
+                        //.attr("x", d => (d.industry == "Technology") ? -100 : width - margin.right)
+                        .remove();
+                    var industryCount = d3.nest()
+                        .key(function(d) {
+                            return d.industry;
+                        })
+                        .rollup(function(v) {
+                            return v.length;
+                        })
+                        .entries(dateSlice);
+                    industryCount.sort(function(b, a) {
+                        return a.value - b.value
+                    })
+                    var legends = svg.selectAll('.legends')
+                        .data(industryCount, d => d.key)
+                    legends.enter()
+                        .append('text')
+                        .attr('class', 'legends')
+                        .attr("x", (d, i) => margin.right + i * width / 7)
+                        .attr('y', d => height - 25)
+                        .attr("text-anchor", "start")
+                        .style('fill', 'rgba(255,255,255,0)')
+                        .text(d => d.key + "(" + d.value + ")")
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .delay(tickDuration * 0.66)
+                        .ease(d3.easeQuad)
+                        .style('fill', d => colors[d.key]);
+                    legends
+                        .transition()
+                        .duration(tickDuration)
+                        .ease(d3.easeQuad)
+                        .attr('x', (d, i) => margin.right + i * width / 7)
+                        .text(d => d.key + "(" + d.value + ")")
+
+                    legends
+                        .exit()
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .ease(d3.easeQuad)
+                        .style('fill', 'rgba(255,255,255,0)')
+                        .remove();
+
+                    var flags = svg.selectAll('.flags').data(dateSlice, d => d.company);
+
+                    flags
+                        .enter()
+                        .append("svg:image")
+                        .attr('class', 'flags')
+                        .attr('width', barHeight * 1.8)
+                        .attr('height', barHeight)
+                        .attr("xlink:href", d => flagsSrc[d.country])
+                        .attr("x", d => (d.industry == "Technology") ? 5 : width - margin.left + 5)
+                        .attr('y', d => yScale(+d.gang_rank))
+                        .style('opacity', 0)
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .delay(tickDuration * 0.66)
+                        .ease(d3.easeQuad)
+                        .style('opacity', 1)
+
+
+                    flags
+                        .transition()
+                        .duration(tickDuration)
+                        .ease(d3.easeQuad)
+                        .attr('y', d => yScale(+d.gang_rank))
+
+                    flags
+                        .exit()
+                        .transition()
+                        .duration(tickDuration * 0.33)
+                        .ease(d3.easeQuad)
+                        .style('opacity', 0)
+                        .remove();
+
+                    dateText.html(date);
+                    if (date == '2020-06-30') ticker.stop();
+                    tickerIndex++;
+                    date = uniqueDates[tickerIndex];
+                },
+                tickDuration);
+
+
+
+
+
+        });
+
+        const halo = function(text, strokeWidth) {
+            text.select(function() {
+                    return this.parentNode.insertBefore(this.cloneNode(true), this);
+                })
+                .style('fill', '#ffffff')
+                .style('stroke', '#ffffff')
+                .style('stroke-width', strokeWidth)
+                .style('stroke-linejoin', 'round')
+                .style('opacity', 1);
+
+        }
+    </script>
+</body>
+
+</html>
